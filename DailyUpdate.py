@@ -19,7 +19,6 @@ from AnalystStock import Niu2 as ASNiu2
 from AnalystStock import Prep as APrep
 from BankFunda import Prep as BankFP
 from Toolbox import DataStructuring 
-from datetime import timedelta
 from scipy import stats
 from Quant import Otho 
 
@@ -141,7 +140,9 @@ def Getcurrentholding(topanalsyt,dailyreturn,rebaldaylist):
     return(df_holding_active)
 
 def Generate_Analystpicks(dailyreturn):
-    analystrebalday=pd.to_datetime(today)-timedelta(days=7)
+    daylist=list(dailyreturn['date'].unique())
+    daylist.sort()
+    analystrebalday=daylist[-7]                                                            #7 trading days ago
     rebaldaylist=[str(analystrebalday)[0:10]]
     activepickNS,TAH,top30p=TA.Top_analyst_nonSector(dailyreturn,rebaldaylist,60,'CSI800') #activeNS,skipped the intersection part
     holding_top30p=Getcurrentholding(top30p,dailyreturn,rebaldaylist)
@@ -176,9 +177,9 @@ def Othogonization(gentable):
     
 def SecRDaily():
     rebaldaylist=rebalday
-    topsec=SRDaily.SecStats(dailyreturn,rebaldaylist,60)
-    topsecname=SRDaily.Getsecname(topsec)
-    topsecname=topsecname.sort_values(by=['rank'])
+    topsecname=SRDaily.Getsecname(dailyreturn,rebaldaylist,60)
+    topsecname=topsecname.sort_values(by=['raccount'])
+    topsecname=topsecname[['date','sector','sectorname','raccount']]
     topsecname.to_csv("D:/CompanyData/TopSector_"+rebaldaylist[0]+".csv",encoding='utf-8-sig',index=False)
     return(topsecname)
 

@@ -51,6 +51,15 @@ class Query():
     def ROA(self,startdate):
         sql="Select QFI.InfoPublDate, QFI.EndDate,SM.Secucode, QFI.ROA from JYDBBAK.dbo.LC_QFinancialIndexNew QFI left join JYDBBAK.dbo.SecuMain SM  on QFI.CompanyCode=SM.CompanyCode where SM.SecuCategory = 1 and QFI.Mark=2 AND QFI.InfoPublDate>=DATEADD(year,-3,'"+startdate+"')"
         return(sql)
+        
+    def OperatingProfitToTORTTM(self,startdate):
+        sql="Select QFI.InfoPublDate, QFI.EndDate,SM.Secucode, MI.OperatingProfitToTORTTM  from JYDBBAK.dbo.LC_MainIndexNew MI left join JYDBBAK.dbo.SecuMain SM on SM.CompanyCode=MI.CompanyCode left join JYDBBAK.dbo.LC_QFinancialIndexNew QFI on (QFI.EndDate=MI.EndDate and QFI.CompanyCode=MI.CompanyCode) where SM.SecuCategory = 1 and QFI.Mark=2 AND QFI.InfoPublDate>=DATEADD(year,-3,'"+startdate+"')"           
+        return(sql)
+        
+    def OCF_Ratio(self,startdate):
+        sql="Select QFI.InfoPublDate, QFI.EndDate,SM.Secucode, MI.NetProfitCashCover from JYDBBAK.dbo.LC_MainIndexNew MI left join JYDBBAK.dbo.SecuMain SM on SM.CompanyCode=MI.CompanyCode left join JYDBBAK.dbo.LC_QFinancialIndexNew QFI on (QFI.EndDate=MI.EndDate and QFI.CompanyCode=MI.CompanyCode) where SM.SecuCategory = 1 and QFI.Mark=2 AND QFI.InfoPublDate>=DATEADD(year,-3,'"+startdate+"')"           
+        return(sql)
+        
             
     #总资产周转率（TotalAssetTRate）＝营业总收入*2/（期初资产合计+期末资产合计）
     def TotalAssetTRate(self,startdate):
@@ -82,7 +91,7 @@ class Query():
         sql="Select ICS.InfoPublDate, ICS.EndDate, SM.SecuCode, ICS.NPFromParentCompanyOwners from JYDBBAK.dbo.LC_QIncomeStatementNew ICS left join JYDBBAK.dbo.SecuMain SM on ICS.CompanyCode=SM.CompanyCode where SM.SecuCategory=1 AND ICS.Mark=2 and ICS.InfoPublDate>=DATEADD(year,-3,'"+startdate+"')"
         return(sql)
 
-
+    
 
 
 

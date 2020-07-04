@@ -431,7 +431,7 @@ newcolnames=[quandltic+indicator for indicator in indicators]
 #add a column to the first place of the dataframe
 dfreshaped.insert(0,column='date',value=dfreshaped.index)
 
-#insert column to the first position
+#insert column to the first column
 df.insert(loc=0, column='A',value=new_col)
 
 #select multiple columns based on values

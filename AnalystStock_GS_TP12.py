@@ -23,7 +23,7 @@ HR=HotStockReview()
 
 #CSI300 historical trading dates and returns
 tradingday=pd.read_csv("D:/SecR/Tradingday.csv")
-ms = MSSQL(host="10.27.10.10:1433",user="hyzb",pwd="hyzb2018",db="GS_TP12") 
+ms = MSSQL(host="10.27.10.10:1433",user="hyzb",pwd="hyzb2018",db="GS_NTP12") 
 #ms = MSSQL(host="10.27.10.10:1433",user="hyzb",pwd="hyzb2018",db="hyzb") 
 
 class Prep():
