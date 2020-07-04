@@ -16,6 +16,7 @@ DC=DataCollect()
 DS=DataStructuring()
 RC=ReturnCal()
 ms = MSSQL(host="GS-UATVDBSRV01\GSUATSQL",user="sa",pwd="SASThom111",db="jyzb_new_1") #This is PROD    
+#rebaldaylist=DC.Rebaldaylist(startdate,rebal_period)
 
 class QueryMgmt():
     def __init__(self):
@@ -112,14 +113,15 @@ class SecR():
         self.P=Prep()
         self.SP=StockPick()
     
-    def SecStats(self,dailyreturn,rebaldaylist,lookback_period):
+    def SecStats(self,dailyreturn,rebaldaylist,lookback_period,publisher):
         #rebaldaylist=DC.Rebaldaylist(startdate,rebal_period)
         rechist=self.P.Hotstock_nonsectorQuery(rebaldaylist,lookback_period)
+        rechist=DS.Screen_Ashs(rechist)
         rechist_active=WS.Active_stock_screening(rechist,dailyreturn,rebaldaylist)
         tickerlist=rechist_active['ticker'].unique()
-        stock_sector=DC.Stock_sector(rebaldaylist,tickerlist,'CITIC')
-        totalsecnum=len(stock_sector['primecode'].unique())
-        selectsecsnum=int(totalsecnum*0.3)
+        stock_sector=DC.Stock_sector(rebaldaylist,tickerlist,publisher)
+        #totalsecnum=len(stock_sector['primecode'].unique())
+        #selectsecsnum=int(totalsecnum*0.3)                    #pikc the top30% or show all recomendations of all sectors
         rechist_active,stock_sector=map(DS.Addindex,(rechist_active,stock_sector))
         rechist_active_sector=pd.merge(rechist_active,stock_sector[['index','primecode']],on='index',how='left')
         rechist_active_sector['primindex']=rechist_active_sector['date']+rechist_active_sector['primecode']
@@ -129,18 +131,65 @@ class SecR():
         secrac['sector']=secrac['primindex'].str[10:13]
         for rebalday in rebaldaylist:
             secrac.loc[secrac['date']==rebalday,'rank'] = secrac.loc[secrac['date']==rebalday,'raccount'].rank(ascending=False,method='min')
-        topsec=secrac.loc[secrac['rank']<=selectsecsnum]
-        return(topsec)
+       #topsec=secrac.loc[secrac['rank']<=selectsecsnum]
+        return(secrac)
     
-    def Getsecname(self,topsec):
-        sec_name=DC.Sec_name('CITIC')
-        sec_name['sectorname']=[x.encode('latin-1').decode('gbk') for x in sec_name['sectorname']]
-        sec_name=sec_name.drop_duplicates(['sector'],keep="first")
-        topsec=pd.merge(topsec,sec_name,how='left',on='sector')
-        topsec=topsec[['date','sector','sectorname','raccount','rank']]
+    #Merge the Bank/Nonbank of CITIC into a CSI table, get sector name
+    #CSI=SR.Getsecname(dailyreturn,rebaldaylist,lookback_period)
+    #CSI.to_csv("D:/SecR/Hotsector.csv",encoding='utf-8-sig',index=False)
+    def Getsecname(self,dailyreturn,rebaldaylist,lookback_period):
+        CSI=self.SecStats(dailyreturn,rebaldaylist,lookback_period,'CSI')
+        CITIC=self.SecStats(dailyreturn,rebaldaylist,lookback_period,'CITIC')
+        sec_nameCSI=DC.Sec_name('CSI')
+        sec_nameCITIC=DC.Sec_name('CITIC')
+        #sec_name['sectorname']=[x.encode('latin-1').decode('gbk') for x in sec_name['sectorname']]
+        sec_nameCSI,sec_nameCITIC=map(lambda df: df.drop_duplicates(['sector'],keep="first"),[sec_nameCSI,sec_nameCITIC])
+        CSI=pd.merge(CSI,sec_nameCSI,how='left',on='sector')
+        CITIC=pd.merge(CITIC,sec_nameCITIC,how='left',on='sector')
+        CSI,CITIC=map(lambda df:df[['date','sector','sectorname','raccount']],[CSI,CITIC])
+        CSIstockcount=self.Secstockcount(CSI,'CSI')
+        CITICstockcount=self.Secstockcount(CITIC,'CITIC')
+        CSI['index']=CSI['date']+CSI['sector']
+        CSIstockcount['index']=CSIstockcount['date']+CSIstockcount['sector']
+        CSI=pd.merge(CSI,CSIstockcount[['index','stockcounts']],on='index',how='left')
+        CITIC['index']=CITIC['date']+CITIC['sector']
+        CITICstockcount['index']=CITICstockcount['date']+CITICstockcount['sector']
+        CITIC=pd.merge(CITIC,CITICstockcount[['index','stockcounts']],on='index',how='left')
+        CSI=CSI.loc[CSI['sector']!='06',:]
+        CSI=CSI.append(CITIC.loc[CITIC['sector'].isin(['40','41','42']),:])
+        CSI['coverage']=CSI['raccount']/CSI['stockcounts']
         #topsec=topsec.sort_values(by=['rank'])
-        return(topsec)
-        
+        CSI=CSI.sort_values(by=['date','raccount'],ascending=[True,False])
+        CSI['sectorname']=[x.encode('latin-1').decode('gbk') for x in CSI['sectorname']]
+        CSI=CSI[['date','sector','sectorname','raccount','stockcounts','coverage']]
+        return(CSI)
+    
+    #Calculate all reports published of a sector vs stocks in the sector
+    def Secstockcount(self,df,publisher):
+        primecodelist=list(df['sector'].unique())
+        rebaldaylist=list(df['date'].unique())
+        sector_stock=DC.Ashs_stock_seccode(rebaldaylist,primecodelist,publisher)
+        sector_stock['newindex']=sector_stock['date']+sector_stock['primecode']
+        coverage=pd.DataFrame(sector_stock['newindex'].value_counts())
+        coverage.reset_index(inplace=True)
+        coverage['date']=coverage['index'].str[0:10]
+        coverage['sector']=coverage['index'].str[10:]
+        coverage=coverage.rename(columns={'newindex':'stockcounts'})
+        coverage=coverage[['date','sector','stockcounts']]
+        return(coverage)
+    
+    #Convert the hotsector raccount into each sector's stocks' signals
+    def HotsectorSignal(self,dailyreturn,rebaldaylist):
+        #Get every stocks' sector return
+        secrac=self.SecStats(dailyreturn,rebaldaylist,60)
+        primecodelist=list(secrac['sector'].unique())
+        stock_sector=DC.Ashs_stock_seccode(rebaldaylist,primecodelist,'CITIC')
+        stock_sector['primindex']=stock_sector['date']+stock_sector['primecode']
+        stock_sector=pd.merge(stock_sector,secrac[['primindex','raccount']],on='primindex',how='left')
+        stock_sector=stock_sector.dropna()
+        stock_sector=stock_sector.drop('primindex',1)
+        return(stock_sector)
+            
 class Review():
     def __init__(self):
         self.P=Prep()
